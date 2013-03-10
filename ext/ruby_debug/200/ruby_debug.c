@@ -1,4 +1,5 @@
 #include <ruby.h>
+#include <ruby/debug.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <vm_core.h>
@@ -1808,6 +1809,22 @@ context_frame_id(int argc, VALUE *argv, VALUE self)
     return frame_id ? ID2SYM(frame_id) : Qnil;
 }
 
+static VALUE
+callback(const rb_debug_inspector_t *dc, void *data)
+{
+    VALUE item, fn;
+    VALUE locs = rb_debug_inspector_backtrace_locations(dc);
+    long i, len = RARRAY_LEN(locs);
+    for (i = 0 ; i < len; ++i) {
+        item = rb_ary_entry(locs, i);
+        fn = rb_funcall(item, rb_intern("path"), 0);
+        if (strcmp((char *)data, StringValuePtr(fn)) == 0)
+            return rb_funcall(item, rb_intern("lineno"), 0);
+    }
+
+    return INT2FIX(0);
+
+}
 /*
  *   call-seq:
  *      context.frame_line(frame_position) -> int
@@ -1819,13 +1836,19 @@ context_frame_line(int argc, VALUE *argv, VALUE self)
 {
     VALUE frame;
     debug_context_t *debug_context;
+/*
     rb_thread_t *th;
     rb_control_frame_t *cfp;
     VALUE *pc;
+*/
 
     debug_check_started();
     frame = optional_frame_position(argc, argv);
     Data_Get_Struct(self, debug_context_t, debug_context);
+
+    return rb_debug_inspector_open(callback, GET_FRAME->file);
+
+/*
     GetThreadPtr(context_thread_0(debug_context), th);
 
     pc = GET_FRAME->info.runtime.last_pc;
@@ -1838,6 +1861,7 @@ context_frame_line(int argc, VALUE *argv, VALUE self)
     }
 
     return(INT2FIX(0));
+*/
 }
 
 /*
