@@ -65,7 +65,7 @@ describe "Frame Command" do
     temporary_change_hash_value(Debugger::Command.settings, :full_path, false)
 
     def short_path(fullpath)
-      separator = File::ALT_SEPARATOR || File::SEPARATOR
+      separator = fullpath.index('/') ? '/' : File::ALT_SEPARATOR || File::SEPARATOR  # [1][-3..-1] ==> nil
       "...#{separator}" + fullpath.split(separator)[-3..-1].join(separator)
     end
 
