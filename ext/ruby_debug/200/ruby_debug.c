@@ -1809,19 +1809,38 @@ context_frame_id(int argc, VALUE *argv, VALUE self)
     return frame_id ? ID2SYM(frame_id) : Qnil;
 }
 
+struct fn_pos
+{
+    char *fn;
+    int pos;
+};
 static VALUE
 callback(const rb_debug_inspector_t *dc, void *data)
 {
-    VALUE item, fn;
+    char *fname = ((struct fn_pos*)data)-> fn;
+    int pos = ((struct fn_pos*)data)-> pos;
+    free(data);
+    VALUE item, fn, lineno=0, li;
     VALUE locs = rb_debug_inspector_backtrace_locations(dc);
     long i, len = RARRAY_LEN(locs);
+    //printf("\n\n" );
     for (i = 0 ; i < len; ++i) {
         item = rb_ary_entry(locs, i);
         fn = rb_funcall(item, rb_intern("path"), 0);
-        if (strcmp((char *)data, StringValuePtr(fn)) == 0)
-            return rb_funcall(item, rb_intern("lineno"), 0);
-    }
+        li = rb_funcall(item, rb_intern("lineno"), 0);
 
+        if (strcmp(fname, StringValuePtr(fn)) == 0){
+            //printf(" %s: %d \n", StringValuePtr(fn), FIX2INT(li));
+            if (pos == 0)
+            {
+                lineno = li;
+            }
+            pos--;
+        }
+    }
+    if (lineno != 0)
+    { return lineno;
+    }
     return INT2FIX(0);
 
 }
@@ -1842,11 +1861,15 @@ context_frame_line(int argc, VALUE *argv, VALUE self)
     VALUE *pc;
 */
 
+    //printf("context_frame_line %d: %d \n", argc, FIX2INT(argv[0]));
     debug_check_started();
     frame = optional_frame_position(argc, argv);
     Data_Get_Struct(self, debug_context_t, debug_context);
 
-    return rb_debug_inspector_open(callback, GET_FRAME->file);
+    struct fn_pos* data = (struct fn_pos*)malloc(sizeof(struct fn_pos));
+    data->fn = GET_FRAME->file;
+    data->pos = FIX2INT(argv[0]);
+    return rb_debug_inspector_open(callback, data);
 
 /*
     GetThreadPtr(context_thread_0(debug_context), th);
